@@ -1,3 +1,6 @@
+import { auth, db } from "./firebase";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useState, useRef } from "react";
 import {
   User, Lock, Mail, Phone, Upload, QrCode, Activity,

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+// ফায়ারবেস সার্ভিস ইম্পোর্ট (নিশ্চিত করুন আপনার src/firebase.ts ফাইলটি রেডি আছে)
+import { auth, db } from "./firebase";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 
-// টাইপ ডিফাইন (যদি আপনার গ্লোবাল টাইপ ফাইল না থাকে)
 type Role = "doctor" | "patient" | "agent" | "admin";
 type View = "landing" | "login" | "register" | "pending" | "doctor" | "patient" | "agent" | "admin";
 
@@ -10,28 +13,61 @@ interface AuthProps {
 }
 
 // ============================================================
-// LOGIN PAGE COMPONENT
+// LOGIN PAGE COMPONENT (REAL FIREBASE WITH APPROVAL SYSTEM)
 // ============================================================
 export function LoginPage({ go, setAuth }: AuthProps) {
   const [role, setRole] = useState<Role>("patient");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // এখানে আমরা একটি মক সাকসেসফুল লগইন করাচ্ছি
     if (email.trim() === "" || password.trim() === "") {
       alert("Please fill in all fields");
       return;
     }
 
-    // রোল অনুযায়ী নাম সেট করে স্টেট আপডেট করা হচ্ছে
-    const userName = role.charAt(0).toUpperCase() + role.slice(1) + " User";
-    setAuth({
-      name: userName,
-      role: role
-    });
+    setLoading(true);
+    try {
+      // ১. ফায়ারবেস দিয়ে ইমেইল ও পাসওয়ার্ড লগইন
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // ২. ফায়ারস্টোর ডেটাবেজ থেকে ইউজারের রোল, নাম এবং স্ট্যাটাস তুলে আনা
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+
+        // ৩. সিলেক্ট করা রোল ডেটাবেজের রোলের সাথে মিলছে কিনা চেক করা
+        if (userData.role !== role) {
+          alert(`You are registered as a ${userData.role.toUpperCase()}, not a ${role.toUpperCase()}!`);
+          setLoading(false);
+          return;
+        }
+
+        // 🚨 ৪. অ্যাডমিন অ্যাপ্রুভাল বা ইন্টারভিউ স্ট্যাটাস চেক
+        if (userData.status === "pending") {
+          alert("Your account is pending admin approval. You can log in after your interview and admin verification.");
+          setLoading(false);
+          return; // এখানেই লগইন প্রসেস আটকে দেওয়া হলো
+        }
+
+        // ৫. সব ঠিক থাকলে (Approved হলে) ড্যাশবোর্ডে রিডাইরেক্ট
+        setAuth({
+          name: userData.name,
+          role: userData.role
+        });
+      } else {
+        alert("User data not found in database!");
+      }
+    } catch (error: any) {
+      alert("Login Failed: " + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,14 +87,12 @@ export function LoginPage({ go, setAuth }: AuthProps) {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-slate-900 py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-slate-800">
           <form className="space-y-6" onSubmit={handleLogin}>
-            
-            {/* রোল সিলেকশন ড্রপডাউন */}
             <div>
               <label className="block text-sm font-medium text-slate-300">Select Your Role</label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as Role)}
-                className="mt-1 block w-full bg-slate-800 border border-slate-700 rounded-md shadow-sm py-2 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="mt-1 block w-full bg-slate-800 border border-slate-700 rounded-md shadow-sm py-2 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="patient">Patient</option>
                 <option value="doctor">Doctor</option>
@@ -94,9 +128,10 @@ export function LoginPage({ go, setAuth }: AuthProps) {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                disabled={loading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
               >
-                Sign In
+                {loading ? "Signing In..." : "Sign In"}
               </button>
             </div>
           </form>
@@ -113,19 +148,52 @@ export function LoginPage({ go, setAuth }: AuthProps) {
 }
 
 // ============================================================
-// REGISTER PAGE COMPONENT
+// REGISTER PAGE COMPONENT (REAL FIREBASE WITH APPROVAL STATUS)
 // ============================================================
 export function RegisterPage({ go }: { go: (view: View) => void }) {
   const [role, setRole] = useState<Role>("patient");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    // যদি পেশেন্ট হয় তবে সরাসরি লগইন এ পাঠানো যায়, আর ডক্টর/এজেন্ট হলে অ্যাপ্রুভাল পেজে
-    if (role === "patient" || role === "admin") {
-      alert("Registration Successful! Please log in.");
-      go("login");
-    } else {
-      go("pending");
+    if (!name || !email || !password) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // ১. ফায়ারবেস অথেন্টিকেশনে ইউজার তৈরি
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // 🚨 ২. রোল অনুযায়ী স্ট্যাটাস সেটআপ (পেশেন্ট/অ্যাডমিন সরাসরি approved, ডাক্তার/এজেন্ট থাকবে pending)
+      const initialStatus = (role === "patient" || role === "admin") ? "approved" : "pending";
+
+      // ৩. ফায়ারস্টোর ডেটাবেজে ইউজারের রিয়াল ডেটা (status সহ) সেভ করা
+      await setDoc(doc(db, "users", user.uid), {
+        name: name,
+        email: email,
+        role: role,
+        status: initialStatus, // 'approved' বা 'pending' স্ট্যাটাস ডেটাবেজে যাবে
+        createdAt: new Date().toISOString()
+      });
+
+      alert("Registration Successful!");
+      
+      // ৪. স্ট্যাটাস অনুযায়ী স্ক্রিন রিডাইরেকশন
+      if (initialStatus === "approved") {
+        go("login");
+      } else {
+        go("pending"); // ডাক্তার/এজেন্ট হলে "Account Pending Approval" স্ক্রিনে নিয়ে যাবে
+      }
+    } catch (error: any) {
+      alert("Registration Failed: " + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -142,7 +210,14 @@ export function RegisterPage({ go }: { go: (view: View) => void }) {
           <form className="space-y-6" onSubmit={handleRegister}>
             <div>
               <label className="block text-sm font-medium text-slate-300">Full Name</label>
-              <input type="text" required className="mt-1 block w-full bg-slate-800 border border-slate-700 rounded-md py-2 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="John Doe"
+                className="mt-1 block w-full bg-slate-800 border border-slate-700 rounded-md py-2 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
             </div>
 
             <div>
@@ -160,15 +235,35 @@ export function RegisterPage({ go }: { go: (view: View) => void }) {
 
             <div>
               <label className="block text-sm font-medium text-slate-300">Email address</label>
-              <input type="email" required className="mt-1 block w-full bg-slate-800 border border-slate-700 rounded-md py-2 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="user@example.com"
+                className="mt-1 block w-full bg-slate-800 border border-slate-700 rounded-md py-2 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300">Password</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="mt-1 block w-full bg-slate-800 border border-slate-700 rounded-md py-2 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
             </div>
 
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                disabled={loading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
               >
-                Register
+                {loading ? "Registering..." : "Register"}
               </button>
             </div>
           </form>
@@ -198,7 +293,7 @@ export function PendingApprovalPage({ go }: { go: (view: View) => void }) {
         </div>
         <h2 className="text-2xl font-bold text-white mb-2">Account Pending Approval</h2>
         <p className="text-slate-400 text-sm mb-6">
-          Thank you for registering! Your profile as a Doctor/Agent is currently being reviewed by our Admin team. You will be able to log in once approved.
+          Thank you for registering! Your profile as a Doctor/Agent is currently being reviewed by our Admin team. You will be able to log in once approved after your interview verification.
         </p>
         <button
           onClick={() => go("landing")}
