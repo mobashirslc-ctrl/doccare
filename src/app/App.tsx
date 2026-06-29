@@ -1985,33 +1985,22 @@ function QRScanPage({ go }: { go: (v: View) => void }) {
 }
 
 // ============================================================
-// MAIN APP
+// MAIN APP (FINAL CLEAN VERSION)
 // ============================================================
-// ১. ইম্পোর্ট সেকশন (ফাইলের একদম উপরে)
-import React, { useState } from 'react';
-import { LoginPage, RegisterPage, PendingApprovalPage } from './Auth'; // আমরা যে নতুন ফাইল বানালাম
-
-// ২. টাইপ ডেফিনিশন (যদি আগে থেকেই থাকে তবে দরকার নেই)
-type Role = "doctor" | "patient" | "agent" | "admin";
-type View = "landing" | "login" | "register" | "pending" | "doctor" | "patient" | "agent" | "admin";
-
-// ৩. আপনার আগের তৈরি করা ড্যাশবোর্ড কম্পোনেন্টগুলো (ফাইলের মাঝখানে থাকবে)
-function LandingPage({ go }: { go: (v: View) => void }) { ... }
-function DoctorDashboard({ go, setAuth }: { go: (v: View) => void, setAuth: any }) { ... }
-function PatientDashboard({ go, setAuth }: { go: (v: View) => void, setAuth: any }) { ... }
-function AgentDashboard({ go, setAuth }: { go: (v: View) => void, setAuth: any }) { ... }
-function AdminDashboard({ go, setAuth }: { go: (v: View) => void, setAuth: any }) { ... }
-
-// ৪. একদম নিচে বসবে আপনার দেওয়া এই মেইন App ফাংশনটি (ফাইলের শেষে)
 export default function App() {
   const [view, setView] = useState<View>("landing");
   const [authUser, setAuthUser] = useState<{ name: string; role: Role } | null>(null);
+  const [agentList, setAgentList] = useState<Agent[]>(INITIAL_AGENTS);
 
   const go = (v: View) => setView(v);
+  
   const setAuth = (u: { name: string; role: Role } | null) => {
     setAuthUser(u);
-    if (u) setView(u.role); 
-    else setView("landing"); 
+    if (u) {
+      setView(u.role); // লগইন হলে সরাসরি সেই ড্যাশবোর্ডে যাবে
+    } else {
+      setView("landing"); // লগআউট হলে হোমপেজে যাবে
+    }
   };
 
   if (view === "landing") return <LandingPage go={go} />;
@@ -2022,7 +2011,8 @@ export default function App() {
   if (view === "doctor") return <DoctorDashboard go={go} setAuth={setAuth} />;
   if (view === "patient") return <PatientDashboard go={go} setAuth={setAuth} />;
   if (view === "agent") return <AgentDashboard go={go} setAuth={setAuth} />;
-  if (view === "admin") return <AdminDashboard go={go} setAuth={setAuth} />;
+  if (view === "admin") return <AdminDashboard go={go} setAuth={setAuth} agentList={agentList} setAgentList={setAgentList} />;
+  if (view === "qrscan") return <QRScanPage go={go} />;
 
   return <LandingPage go={go} />;
 }
