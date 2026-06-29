@@ -2145,7 +2145,10 @@ export default function App() {
   if (view === "landing") return <LandingPage go={go} />;
   if (view === "login") return <LoginPage go={go} setAuth={setAuth} />;
   if (view === "register") return <RegisterPage go={go} />;
-if (view === "pending") return <PendingApprovalPage go={go} role={authData.role} />;  
+if (view === "pending") {
+  // আপনার যদি authData নামে স্টেট থাকে তবে সেটি ব্যবহার করুন, আর না থাকলে auth ভেরিয়েবলটি ব্যবহার করুন
+  return <PendingApprovalPage go={setView} role={auth?.role || "doctor"} />;
+}  
   if (view === "doctor") return <DoctorDashboard go={go} setAuth={setAuth} />;
   if (view === "patient") return <PatientDashboard go={go} setAuth={setAuth} />;
   if (view === "agent") return <AgentDashboard go={go} setAuth={setAuth} />;
