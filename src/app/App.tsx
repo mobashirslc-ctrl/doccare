@@ -1,7 +1,6 @@
-import { auth, db } from "./firebase";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
+// 🚨 পুরোনো ফায়ারবেস ইম্পোর্ট ৩টি মুছে এই একটি লাইন যোগ করুন:
+import { LoginPage, RegisterPage, PendingApprovalPage } from "./Auth";
 import {
   User, Lock, Mail, Phone, Upload, QrCode, Activity,
   Users, FileText, Settings, Bell, Star, Play, Download,
@@ -445,35 +444,99 @@ function LandingPage({ go }: { go: (v: View) => void }) {
 // ============================================================
 // LOGIN PAGE
 // ============================================================
-function LoginPage({ go, setAuth }: { go: (v: View) => void; setAuth: (u: { name: string; role: Role }) => void }) {
+import React, { useState } from "react";
+// ফায়ারবেস ইম্পোর্টস
+import { auth, db } from "./firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+
+// আইকন ইম্পোর্টস (সবগুলো নিশ্চিত করা হয়েছে যাতে কোনো এরর না আসে)
+import { User, Heart, Headphones, Shield, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
+
+type Role = "doctor" | "patient" | "agent" | "admin";
+type View = "landing" | "login" | "register" | "pending" | "doctor" | "patient" | "agent" | "admin";
+
+export function LoginPage({ 
+  go, 
+  setAuth 
+}: { 
+  go: (v: View) => void; 
+  setAuth: (u: { name: string; role: Role }) => void 
+}) {
   const [role, setRole] = useState<Role>("doctor");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
-
-  const DEMO = {
-    doctor: { email: "dr.karim@example.com", name: "ডা. আহমেদ করিম" },
-    patient: { email: "patient@example.com", name: "মো. রহিম উদ্দিন" },
-    agent: { email: "rafi@example.com", name: "রাফি হাসান" },
-    admin: { email: "admin@example.com", name: "Super Admin" },
-  };
+  const [loading, setLoading] = useState(false); // লোডিং স্টেট
 
   const isValid = identifier.length > 0 && password.length >= 6;
 
-  const handleLogin = () => {
-    if (!isValid) return;
-    setAuth({ name: DEMO[role].name, role });
-    go(role);
+  // ইউজার যদি শুধু মোবাইল নম্বর দেয়, তবে সেটাকে ফায়ারবেস ফরম্যাট ইমেইলে রূপান্তর করার লজিক
+  const formatEmail = (input: string) => {
+    const cleanInput = input.trim();
+    if (!cleanInput.includes("@")) {
+      return `${cleanInput}@medicarebd.com`; // রেজিস্ট্রেশনের সাথে মিল রেখে
+    }
+    return cleanInput;
   };
 
-  const demoLogin = (r: Role) => { setAuth({ name: DEMO[r].name, role: r }); go(r); };
+  // 🚨 আসল ফায়ারবেস লগইন হ্যান্ডলার
+  const handleLogin = async () => {
+    if (!isValid) return;
+    setError("");
+    setLoading(true);
+
+    try {
+      const emailToSignIn = formatEmail(identifier);
+
+      // ১. ফায়ারবেস দিয়ে সাইন-ইন
+      const userCredential = await signInWithEmailAndPassword(auth, emailToSignIn, password);
+      const user = userCredential.user;
+
+      // ২. ফায়ারস্টোর থেকে ইউজারের রোল এবং স্ট্যাটাস চেক করা
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+
+        // ৩. রোল ভ্যালিডেশন (সিলেক্ট করা রোলের সাথে ডাটাবেজের রোল মিলছে কি না)
+        if (userData.role !== role) {
+          setError(`এই অ্যাকাউন্টটি ${role === 'doctor' ? 'ডাক্তার' : role === 'patient' ? 'রোগী' : role === 'agent' ? 'এজেন্ট' : 'অ্যাডমিন'} হিসেবে নিবন্ধিত নয়!`);
+          setLoading(false);
+          return;
+        }
+
+        // ৪. স্ট্যাটাস ভ্যালিডেশন (ডাক্তার বা এজেন্ট পেন্ডিং থাকলে ড্যাশবোর্ডে ঢুকতে দেবে না)
+        if (userData.status === "pending") {
+          go("pending");
+          setLoading(false);
+          return;
+        }
+
+        // ৫. সবকিছু ঠিক থাকলে অথ সেট করা এবং ড্যাশবোর্ডে পাঠানো
+        setAuth({ name: userData.name, role: userData.role as Role });
+        go(userData.role as View);
+      } else {
+        setError("ইউজারের কোনো তথ্য ডাটাবেজে পাওয়া যায়নি!");
+      }
+    } catch (err: any) {
+      // ফায়ারবেসের কমন এরর মেসেজগুলোকে বাংলায় রূপান্তর
+      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+        setError("ভুল ইমেইল/মোবাইল নম্বর অথবা পাসওয়ার্ড!");
+      } else {
+        setError("লগইন ব্যর্থ হয়েছে: " + err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const tabs = [
-    { id: "doctor" as Role, label: "ডাক্তার", icon: <User className="w-4 h-4"/> },
-    { id: "patient" as Role, label: "রোগী", icon: <Heart className="w-4 h-4"/> },
-    { id: "agent" as Role, label: "এজেন্ট", icon: <Headphones className="w-4 h-4"/> },
-    { id: "admin" as Role, label: "অ্যাডমিন", icon: <Shield className="w-4 h-4"/> },
+    { id: "doctor" as Role, label: "ডাক্তার", icon: <User className="w-4 h-4" /> },
+    { id: "patient" as Role, label: "রোগী", icon: <Heart className="w-4 h-4" /> },
+    { id: "agent" as Role, label: "এজেন্ট", icon: <Headphones className="w-4 h-4" /> },
+    { id: "admin" as Role, label: "অ্যাডমিন", icon: <Shield className="w-4 h-4" /> },
   ];
 
   return (
@@ -485,7 +548,7 @@ function LoginPage({ go, setAuth }: { go: (v: View) => void; setAuth: (u: { name
       </div>
       <div className="relative w-full max-w-md mx-4">
         <div className="text-center mb-8">
-          <button onClick={() => go("landing")} className="inline-flex items-center gap-3 text-white">
+          <button onClick={() => go("landing")} className="inline-flex items-center gap-3 text-white bg-transparent border-none cursor-pointer">
             <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg">
               <Heart className="w-7 h-7" style={{ color: "#FF5E13" }}/>
             </div>
@@ -495,23 +558,25 @@ function LoginPage({ go, setAuth }: { go: (v: View) => void; setAuth: (u: { name
         <div className="bg-white rounded-3xl shadow-2xl p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-1">স্বাগতম!</h2>
           <p className="text-gray-500 text-sm mb-6">আপনার অ্যাকাউন্টে লগইন করুন</p>
+          
           {/* Role Tabs */}
           <div className="grid grid-cols-4 gap-1 p-1 bg-gray-100 rounded-xl mb-6">
             {tabs.map(t => (
-              <button key={t.id} onClick={() => { setRole(t.id); setError(""); }}
-                      className={`flex flex-col items-center gap-1 py-2 px-1 rounded-lg text-xs font-semibold transition-all ${role === t.id ? "bg-white shadow text-orange-600" : "text-gray-500 hover:text-gray-700"}`}>
+              <button key={t.id} type="button" onClick={() => { setRole(t.id); setError(""); }}
+                      className={`flex flex-col items-center gap-1 py-2 px-1 rounded-lg text-xs font-semibold transition-all border-none cursor-pointer ${role === t.id ? "bg-white shadow text-orange-600" : "text-gray-500 bg-transparent hover:text-gray-700"}`}>
                 {t.icon}{t.label}
               </button>
             ))}
           </div>
+
           <div className="space-y-4">
             <div>
               <label className="text-sm font-semibold text-gray-700 block mb-1.5">ইমেইল / মোবাইল নম্বর</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"/>
                 <input type="text" value={identifier} onChange={e => setIdentifier(e.target.value)}
-                       placeholder={`Demo: ${DEMO[role].email}`}
-                       className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"/>
+                       placeholder="আপনার ইমেইল বা মোবাইল নম্বর দিন"
+                       className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 text-gray-900 bg-white"/>
               </div>
             </div>
             <div>
@@ -519,56 +584,64 @@ function LoginPage({ go, setAuth }: { go: (v: View) => void; setAuth: (u: { name
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"/>
                 <input type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
-                       placeholder="কমপক্ষে ৬ অক্ষর"
-                       className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent"/>
-                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                       placeholder="আপনার পাসওয়ার্ড লিখুন"
+                       className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 text-gray-900 bg-white"/>
+                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer">
                   {showPass ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
                 </button>
               </div>
             </div>
+
             {error && (
               <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg">
                 <AlertCircle className="w-4 h-4 flex-shrink-0"/>{error}
               </div>
             )}
-            <button onClick={handleLogin} disabled={!isValid}
-                    className={`w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all ${isValid ? "hover:opacity-90 hover:shadow-lg shadow-md" : "opacity-40 cursor-not-allowed"}`}
-                    style={{ background: isValid ? "linear-gradient(135deg, #FF5E13, #D84315)" : "#cbd5e1" }}>
-              লগইন করুন
+
+            <button type="button" onClick={handleLogin} disabled={!isValid || loading}
+                    className={`w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all border-none cursor-pointer ${isValid && !loading ? "hover:opacity-90 hover:shadow-lg shadow-md" : "opacity-40 cursor-not-allowed"}`}
+                    style={{ background: isValid && !loading ? "linear-gradient(135deg, #FF5E13, #D84315)" : "#cbd5e1" }}>
+              {loading ? "লগইন হচ্ছে..." : "লগইন করুন"}
             </button>
           </div>
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-gray-200"/><span className="text-xs text-gray-400">অথবা দ্রুত ডেমো</span><div className="flex-1 h-px bg-gray-200"/>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {tabs.map(t => (
-              <button key={t.id} onClick={() => demoLogin(t.id)}
-                      className="flex items-center gap-2 py-2 px-3 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:border-orange-300 hover:text-orange-600 hover:bg-orange-50 transition-all">
-                {t.icon}{t.label} হিসেবে প্রবেশ
-              </button>
-            ))}
-          </div>
+
           <p className="text-center text-sm text-gray-500 mt-6">
             অ্যাকাউন্ট নেই?{" "}
-            <button onClick={() => go("register")} className="font-semibold hover:underline" style={{ color: "#FF5E13" }}>রেজিস্ট্রেশন করুন</button>
+            <button type="button" onClick={() => go("register")} className="font-semibold hover:underline bg-transparent border-none cursor-pointer" style={{ color: "#FF5E13" }}>রেজিস্ট্রেশন করুন</button>
           </p>
         </div>
-        <button onClick={() => go("landing")} className="mt-5 w-full text-center text-white/80 text-sm hover:text-white transition-colors">
+        
+        <button type="button" onClick={() => go("landing")} className="mt-5 w-full text-center text-white/80 text-sm hover:text-white transition-colors bg-transparent border-none cursor-pointer">
           ← হোম পেজে ফিরুন
         </button>
       </div>
     </div>
   );
 }
-
 // ============================================================
 // REGISTER PAGE
 // ============================================================
-function RegisterPage({ go }: { go: (v: View) => void }) {
+import React, { useState, useRef } from 'react';
+// ফায়ারবেস সার্ভিস ইম্পোর্ট (নিশ্চিত করুন আপনার src/firebase.ts ফাইলটি রেডি আছে)
+import { auth, db } from "./firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+
+// আইকন ইম্পোর্টস (আপনার ডিজাইন অনুযায়ী সব আইকন যুক্ত করা হয়েছে)
+import { 
+  User, Heart, Headphones, Shield, Mail, Phone, Lock, 
+  Calendar, Globe, Upload, CheckCircle, BookOpen, Briefcase, Check 
+} from 'lucide-react';
+
+type Role = "doctor" | "patient" | "agent" | "admin";
+type View = "landing" | "login" | "register" | "pending" | "doctor" | "patient" | "agent" | "admin";
+
+export function RegisterPage({ go }: { go: (v: View) => void }) {
   const [role, setRole] = useState<Role>("doctor");
   const [step, setStep] = useState(1);
   const [showPass, setShowPass] = useState(false);
   const [cvName, setCvName] = useState("");
+  const [loading, setLoading] = useState(false); // লোডিং স্টেট
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -580,15 +653,23 @@ function RegisterPage({ go }: { go: (v: View) => void }) {
 
   const upd = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
-  const baseValid = form.name.length > 0 && form.email.includes("@") && form.phone.length >= 11
+  // পেশেন্ট যদি ইমেইল না দেয়, তবে তার ফোন নম্বর দিয়ে একটি ইউনিক ডামি ইমেইল তৈরি হবে ফায়ারবেসের জন্য
+  const getRegisterEmail = () => {
+    if (form.email.trim() === "") {
+      return `${form.phone}@medicarebd.com`;
+    }
+    return form.email;
+  };
+
+  const baseValid = form.name.length > 0 && form.phone.length >= 11
     && form.password.length >= 6 && form.password === form.confirmPass;
 
   const isStepValid = () => {
-    if (role === "doctor") return baseValid && form.specialty.length > 0 && form.chamber.length > 0;
+    if (role === "doctor") return baseValid && form.email.includes("@") && form.specialty.length > 0 && form.chamber.length > 0;
     if (role === "patient") return form.name.length > 0 && form.phone.length >= 11 && form.password.length >= 6 && form.password === form.confirmPass && form.dob.length > 0;
-    if (role === "admin") return baseValid && form.adminCode === "ADMIN2025";
+    if (role === "admin") return baseValid && form.email.includes("@") && form.adminCode === "ADMIN2025";
     if (role === "agent") {
-      if (step === 1) return baseValid;
+      if (step === 1) return baseValid && form.email.includes("@");
       if (step === 2) return form.qualification.length > 0 && form.institution.length > 0;
       if (step === 3) return form.workExp.length > 0;
       return cvName.length > 0;
@@ -596,11 +677,57 @@ function RegisterPage({ go }: { go: (v: View) => void }) {
     return false;
   };
 
-  const handleSubmit = () => {
-    if (role === "agent") go("pending");
-    else if (role === "doctor") go("doctor");
-    else if (role === "patient") go("patient");
-    else go("admin");
+  // 🚨 আসল ফায়ারবেস সাবমিট হ্যান্ডলার
+  const handleSubmit = async () => {
+    if (!isStepValid()) return;
+
+    setLoading(true);
+    try {
+      const emailToRegister = getRegisterEmail();
+
+      // ১. ফায়ারবেস Auth-এ ইউজার তৈরি
+      const userCredential = await createUserWithEmailAndPassword(auth, emailToRegister, form.password);
+      const user = userCredential.user;
+
+      // ২. স্ট্যাটাস রুল (patient ও admin সরাসরি approved, doctor ও agent থাকবে pending)
+      const initialStatus = (role === "patient" || role === "admin") ? "approved" : "pending";
+
+      // ৩. ফায়ারস্টোর ডাটাবেজে সম্পূর্ণ ডাটা সেভ করা হচ্ছে
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        role: role,
+        status: initialStatus, // 'approved' অথবা 'pending'
+        createdAt: new Date().toISOString(),
+        // রোল অনুযায়ী অতিরিক্ত প্রয়োজনীয় ফিল্ড ডাটাবেজে পাঠানো হচ্ছে
+        ...(role === "doctor" && { specialty: form.specialty, chamber: form.chamber }),
+        ...(role === "patient" && { dob: form.dob }),
+        ...(role === "agent" && { 
+          qualification: form.qualification, 
+          institution: form.institution, 
+          year: form.year,
+          company: form.company,
+          agentRole: form.agentRole,
+          workExp: form.workExp,
+          cvName: cvName 
+        })
+      });
+
+      alert("রেজিস্ট্রেশন সফল হয়েছে!");
+
+      // ৪. ভিউ বা স্ক্রিন পরিবর্তনের লজিক
+      if (initialStatus === "approved") {
+        go("login");
+      } else {
+        go("pending"); // এজেন্ট বা ডাক্তার হলে পেন্ডিং স্ক্রিনে যাবে ইন্টারভিউয়ের জন্য
+      }
+    } catch (error: any) {
+      alert("রেজিস্ট্রেশন ব্যর্থ হয়েছে: " + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const tabs = [
@@ -620,7 +747,7 @@ function RegisterPage({ go }: { go: (v: View) => void }) {
         <Field label="মোবাইল নম্বর" icon={<Phone className="w-5 h-5"/>} type="tel" val={form.phone} onChange={v => upd("phone", v)} placeholder="01XXXXXXXXX"/>
         <div>
           <label className="text-sm font-semibold text-gray-700 block mb-1.5">বিশেষজ্ঞতা</label>
-          <select value={form.specialty} onChange={e => upd("specialty", e.target.value)} className="w-full py-3 px-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300">
+          <select value={form.specialty} onChange={e => upd("specialty", e.target.value)} className="w-full py-3 px-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white text-gray-900">
             <option value="">বেছে নিন</option>
             {["কার্ডিওলজি","মেডিসিন","গাইনোকোলজি","শিশু বিশেষজ্ঞ","অর্থোপেডিক","ডার্মাটোলজি","নিউরোলজি","সার্জারি","চক্ষু","অন্যান্য"].map(s => <option key={s}>{s}</option>)}
           </select>
@@ -651,11 +778,12 @@ function RegisterPage({ go }: { go: (v: View) => void }) {
           <label className="text-sm font-semibold text-gray-700 block mb-1.5">অ্যাডমিন কোড</label>
           <div className="relative">
             <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"/>
-            <input type="text" value={form.adminCode} onChange={e => upd("adminCode", e.target.value)} placeholder="ADMIN2025 (Demo)" className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"/>
+            <input type="text" value={form.adminCode} onChange={e => upd("adminCode", e.target.value)} placeholder="ADMIN2025 (Demo)" className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 text-gray-900 bg-white"/>
           </div>
         </div>
       </>
     );
+    
     // Agent steps
     if (step === 1) return (
       <>
@@ -670,7 +798,7 @@ function RegisterPage({ go }: { go: (v: View) => void }) {
       <>
         <div>
           <label className="text-sm font-semibold text-gray-700 block mb-1.5">সর্বোচ্চ শিক্ষাগত যোগ্যতা</label>
-          <select value={form.qualification} onChange={e => upd("qualification", e.target.value)} className="w-full py-3 px-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300">
+          <select value={form.qualification} onChange={e => upd("qualification", e.target.value)} className="w-full py-3 px-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 text-gray-900 bg-white">
             <option value="">বেছে নিন</option>
             {["SSC","HSC","Diploma","BSc / BA / BBA","MSc / MA / MBA","BSc Nursing","অন্যান্য"].map(s => <option key={s}>{s}</option>)}
           </select>
@@ -685,7 +813,7 @@ function RegisterPage({ go }: { go: (v: View) => void }) {
         <Field label="পদবী / ভূমিকা" icon={<User className="w-5 h-5"/>} type="text" val={form.agentRole} onChange={v => upd("agentRole", v)} placeholder="যেমন: Customer Service Executive"/>
         <div>
           <label className="text-sm font-semibold text-gray-700 block mb-1.5">মোট কাজের অভিজ্ঞতা</label>
-          <select value={form.workExp} onChange={e => upd("workExp", e.target.value)} className="w-full py-3 px-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300">
+          <select value={form.workExp} onChange={e => upd("workExp", e.target.value)} className="w-full py-3 px-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 text-gray-900 bg-white">
             <option value="">বেছে নিন</option>
             {["কোনো অভিজ্ঞতা নেই (ফ্রেশার)","৬ মাস - ১ বছর","১ - ২ বছর","২ - ৩ বছর","৩+ বছর"].map(s => <option key={s}>{s}</option>)}
           </select>
@@ -724,7 +852,7 @@ function RegisterPage({ go }: { go: (v: View) => void }) {
       </div>
       <div className="relative w-full max-w-lg mx-4">
         <div className="text-center mb-6">
-          <button onClick={() => go("landing")} className="inline-flex items-center gap-3 text-white">
+          <button onClick={() => go("landing")} className="inline-flex items-center gap-3 text-white bg-transparent border-none cursor-pointer">
             <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg">
               <Heart className="w-7 h-7" style={{ color: "#FF5E13" }}/>
             </div>
@@ -736,12 +864,13 @@ function RegisterPage({ go }: { go: (v: View) => void }) {
           <p className="text-gray-500 text-sm mb-6">আপনার ভূমিকা অনুযায়ী রেজিস্ট্রেশন করুন</p>
           <div className="grid grid-cols-4 gap-1 p-1 bg-gray-100 rounded-xl mb-6">
             {tabs.map(t => (
-              <button key={t.id} onClick={() => { setRole(t.id); setStep(1); setCvName(""); }}
-                      className={`flex flex-col items-center gap-1 py-2 px-1 rounded-lg text-xs font-semibold transition-all ${role === t.id ? "bg-white shadow text-orange-600" : "text-gray-500 hover:text-gray-700"}`}>
+              <button key={t.id} type="button" onClick={() => { setRole(t.id); setStep(1); setCvName(""); }}
+                      className={`flex flex-col items-center gap-1 py-2 px-1 rounded-lg text-xs font-semibold transition-all border-none cursor-pointer ${role === t.id ? "bg-white shadow text-orange-600" : "text-gray-500 bg-transparent hover:text-gray-700"}`}>
                 {t.icon}{t.label}
               </button>
             ))}
           </div>
+          
           {/* Agent step indicator */}
           {role === "agent" && (
             <div className="mb-6">
@@ -759,38 +888,60 @@ function RegisterPage({ go }: { go: (v: View) => void }) {
               <p className="text-sm font-semibold text-gray-700">ধাপ {step}: {agentStepLabels[step - 1]}</p>
             </div>
           )}
+
           <div className="space-y-4">{renderForm()}</div>
-          {/* Password toggle for non-agent or agent step 1 */}
+          
+          {/* Password toggle */}
           {(role !== "agent" || step === 1) && (
-            <button type="button" onClick={() => setShowPass(!showPass)} className="mt-2 text-xs text-gray-500 hover:text-gray-700 transition-colors">
+            <button type="button" onClick={() => setShowPass(!showPass)} className="mt-2 text-xs text-gray-500 hover:text-gray-700 transition-colors bg-transparent border-none cursor-pointer">
               {showPass ? "পাসওয়ার্ড লুকান" : "পাসওয়ার্ড দেখান"}
             </button>
           )}
+
           <div className="mt-6 flex gap-3">
             {role === "agent" && step > 1 && (
-              <button onClick={() => setStep(s => s - 1)} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-all">
+              <button type="button" onClick={() => setStep(s => s - 1)} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm bg-white hover:bg-gray-50 transition-all cursor-pointer">
                 ← পূর্ববর্তী
               </button>
             )}
             {role === "agent" && step < 4 ? (
-              <button onClick={() => setStep(s => s + 1)} disabled={!valid}
-                      className={`flex-1 py-3.5 rounded-xl font-bold text-white text-sm transition-all ${valid ? "hover:opacity-90 shadow-md" : "opacity-40 cursor-not-allowed"}`}
+              <button type="button" onClick={() => setStep(s => s + 1)} disabled={!valid}
+                      className={`flex-1 py-3.5 rounded-xl font-bold text-white text-sm transition-all border-none cursor-pointer ${valid ? "hover:opacity-90 shadow-md" : "opacity-40 cursor-not-allowed"}`}
                       style={{ background: valid ? "linear-gradient(135deg, #FF5E13, #D84315)" : "#cbd5e1" }}>
                 পরবর্তী ধাপ →
               </button>
             ) : (
-              <button onClick={handleSubmit} disabled={!valid}
-                      className={`flex-1 py-3.5 rounded-xl font-bold text-white text-sm transition-all ${valid ? "hover:opacity-90 shadow-md" : "opacity-40 cursor-not-allowed"}`}
-                      style={{ background: valid ? "linear-gradient(135deg, #FF5E13, #D84315)" : "#cbd5e1" }}>
-                {role === "agent" ? "আবেদন জমা দিন ✓" : "রেজিস্ট্রেশন সম্পন্ন করুন ✓"}
+              <button type="button" onClick={handleSubmit} disabled={!valid || loading}
+                      className={`flex-1 py-3.5 rounded-xl font-bold text-white text-sm transition-all border-none cursor-pointer ${valid && !loading ? "hover:opacity-90 shadow-md" : "opacity-40 cursor-not-allowed"}`}
+                      style={{ background: valid && !loading ? "linear-gradient(135deg, #FF5E13, #D84315)" : "#cbd5e1" }}>
+                {loading ? "নিবন্ধন হচ্ছে..." : (role === "agent" ? "আবেদন জমা দিন ✓" : "রেজিস্ট্রেশন সম্পন্ন করুন ✓")}
               </button>
             )}
           </div>
           <p className="text-center text-sm text-gray-500 mt-5">
             ইতোমধ্যে অ্যাকাউন্ট আছে?{" "}
-            <button onClick={() => go("login")} className="font-semibold hover:underline" style={{ color: "#FF5E13" }}>লগইন করুন</button>
+            <button type="button" onClick={() => go("login")} className="font-semibold hover:underline bg-transparent border-none cursor-pointer" style={{ color: "#FF5E13" }}>লগইন করুন</button>
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// রিইউজেবল ফিল্ড উপাদান
+function Field({ label, icon, type, val, onChange, placeholder, show }: { label: string, icon: React.ReactNode, type: string, val: string, onChange: (v: string) => void, placeholder: string, show?: boolean }) {
+  return (
+    <div>
+      <label className="text-sm font-semibold text-gray-700 block mb-1.5">{label}</label>
+      <div className="relative">
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">{icon}</div>
+        <input 
+          type={type === "password" ? (show ? "text" : "password") : type} 
+          value={val} 
+          onChange={e => onChange(e.target.value)} 
+          placeholder={placeholder} 
+          className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 text-gray-900 bg-white"
+        />
       </div>
     </div>
   );
