@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 // 🚨 পুরোনো ফায়ারবেস ইম্পোর্ট ৩টি মুছে এই একটি লাইন যোগ করুন:
 import { LoginPage, RegisterPage, PendingApprovalPage } from "./Auth";
+import { PendingPage } from "./PendingPage";
 import {
   User, Lock, Mail, Phone, Upload, QrCode, Activity,
   Users, FileText, Settings, Bell, Star, Play, Download,
@@ -2144,8 +2145,7 @@ export default function App() {
   if (view === "landing") return <LandingPage go={go} />;
   if (view === "login") return <LoginPage go={go} setAuth={setAuth} />;
   if (view === "register") return <RegisterPage go={go} />;
-  if (view === "pending") return <PendingApprovalPage go={go} />;
-  
+if (view === "pending") return <PendingApprovalPage go={go} role={authData.role} />;  
   if (view === "doctor") return <DoctorDashboard go={go} setAuth={setAuth} />;
   if (view === "patient") return <PatientDashboard go={go} setAuth={setAuth} />;
   if (view === "agent") return <AgentDashboard go={go} setAuth={setAuth} />;
