@@ -623,7 +623,7 @@ export function LoginPage({
 // ============================================================
 import React, { useState, useRef } from 'react';
 // ফায়ারবেস সার্ভিস ইম্পোর্ট (নিশ্চিত করুন আপনার src/firebase.ts ফাইলটি রেডি আছে)
-import { auth, db } from "./firebase";
+import { auth, db } from "../firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 
