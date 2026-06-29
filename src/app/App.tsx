@@ -929,23 +929,7 @@ export function RegisterPage({ go }: { go: (v: View) => void }) {
 }
 
 // রিইউজেবল ফিল্ড উপাদান
-function Field({ label, icon, type, val, onChange, placeholder, show }: { label: string, icon: React.ReactNode, type: string, val: string, onChange: (v: string) => void, placeholder: string, show?: boolean }) {
-  return (
-    <div>
-      <label className="text-sm font-semibold text-gray-700 block mb-1.5">{label}</label>
-      <div className="relative">
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">{icon}</div>
-        <input 
-          type={type === "password" ? (show ? "text" : "password") : type} 
-          value={val} 
-          onChange={e => onChange(e.target.value)} 
-          placeholder={placeholder} 
-          className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 text-gray-900 bg-white"
-        />
-      </div>
-    </div>
-  );
-}
+
 
 // ============================================================
 // PENDING APPROVAL PAGE
