@@ -1592,45 +1592,41 @@ export default function App() {
   const go = (v: View) => setView(v);
   const setAuth = (u: { name: string; role: Role } | null) => setAuthUser(u);
   useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, (user) => {
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
     if (user) {
-      // User login ache, tumi chaile ekhane db theke data niye 
-      // setAuthUser(data) korte paro
       console.log("User is logged in:", user.uid);
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setAuth({ name: userData.name, role: userData.role });
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
     } else {
-      // User logout hoye geche
       console.log("User is logged out");
       setAuth(null);
+      // শুধু তখনই ল্যান্ডিং পেজে পাঠাও যদি ইউজার রেজিস্ট্রেশন বা লগইন পেজে না থাকে
+      if (view !== "register" && view !== "login") {
+        go("landing");
+      }
     }
   });
   return () => unsubscribe();
-}, []);
+}, []); // dependency array খালি রাখুন
 
-  if (view === "landing") return <LandingPage go={go}/>;
-  if (view === "login") {
-  return <LoginPage go={setView} setAuth={setAuth} />;
-}
-if (view === "register") {
-  return (
-    <RegisterPage 
-      go={go} 
-      setDocPackage={setDocPackage} 
-      setAuth={setAuth} // এই লাইনটি যোগ করুন
-    />
-  );
-}
-  if (view === "doctor-payment") {
-  return <DoctorPaymentPage go={go} docPackage={docPackage} />;
-}
-  if (view === "doctor-pending") return <DoctorPendingPage go={go} docPackage={docPackage}/>;
-if (view === "pending") {
-  // এখানে authUser থেকে role পাস করছি, যাতে PendingPage বুঝতে পারে কে লগইন করেছে
-  return <PendingPage go={go} role={authUser?.role || "doctor"} />;
-}
-  if (view === "doctor") return <DoctorDashboard go={go} setAuth={() => setAuth(null)} docPackage={docPackage} subscriptionDays={subscriptionDays} setSubscriptionDays={setSubscriptionDays} isDashboardBlocked={isDashboardBlocked} setIsDashboardBlocked={setIsDashboardBlocked}/>;
-  if (view === "patient") return <PatientDashboard go={go} setAuth={() => setAuth(null)}/>;
-  if (view === "agent") return <AgentDashboard go={go} setAuth={() => setAuth(null)}/>;
-  if (view === "admin") return <AdminDashboard go={go} setAuth={() => setAuth(null)} agentList={agentList} setAgentList={setAgentList}/>;
-  if (view === "qrscan") return <QRScanPage go={go}/>;
-  return <LandingPage go={go}/>;
-}
+// ভিউ হ্যান্ডলিং
+if (view === "landing") return <LandingPage go={go}/>;
+if (view === "login") return <LoginPage go={go} setAuth={setAuth} />;
+if (view === "register") return <RegisterPage go={go} setDocPackage={setDocPackage} setAuth={setAuth} />;
+if (view === "doctor-payment") return <DoctorPaymentPage go={go} docPackage={docPackage} />;
+if (view === "doctor-pending") return <DoctorPendingPage go={go} docPackage={docPackage}/>;
+if (view === "pending") return <PendingPage go={go} role={authUser?.role || "doctor"} />;
+if (view === "doctor") return <DoctorDashboard go={go} setAuth={() => setAuth(null)} docPackage={docPackage} subscriptionDays={subscriptionDays} setSubscriptionDays={setSubscriptionDays} isDashboardBlocked={isDashboardBlocked} setIsDashboardBlocked={setIsDashboardBlocked}/>;
+if (view === "patient") return <PatientDashboard go={go} setAuth={() => setAuth(null)}/>;
+if (view === "agent") return <AgentDashboard go={go} setAuth={() => setAuth(null)}/>;
+if (view === "admin") return <AdminDashboard go={go} setAuth={() => setAuth(null)} agentList={agentList} setAgentList={setAgentList}/>;
+if (view === "qrscan") return <QRScanPage go={go}/>;
+
+return <LandingPage go={go}/>;
