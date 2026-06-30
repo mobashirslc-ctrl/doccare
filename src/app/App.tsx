@@ -1586,7 +1586,7 @@ export default function App() {
   return <LoginPage go={setView} setAuth={setAuth} />;
 }
 if (view === "register") {
-  return <RegisterPage go={go} setDocPackage={setDocPackage} setRole={setCurrentRole} />;
+  return <RegisterPage go={go} setAuth={setAuth} />;
 }
   if (view === "doctor-payment") return <DoctorPaymentPage go={go} docPackage={docPackage}/>;
   if (view === "doctor-pending") return <DoctorPendingPage go={go} docPackage={docPackage}/>;
