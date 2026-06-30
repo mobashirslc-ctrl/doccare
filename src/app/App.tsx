@@ -766,7 +766,7 @@ function DoctorPendingPage({ go, docPackage }: { go: (v: View) => void; docPacka
 // ============================================================
 // AGENT PENDING PAGE
 // ============================================================
-function PendingApprovalPage({ go }: { go: (v: View) => void }) {
+function PendingPage({ go }: { go: (v: View) => void }) {
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "linear-gradient(135deg, #FF5E13 0%, #D84315 100%)" }}>
       <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-md w-full text-center">
