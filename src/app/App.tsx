@@ -2,7 +2,8 @@ import { useState, useRef } from "react";
 import { PendingPage } from "../PendingPage";
 import { useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../firebase"; //
+import { doc, getDoc } from "firebase/firestore"; // এই লাইনটি মিসিং ছিল
+import { auth, db } from "../firebase"; // আপনার ফায়ারবেস কনফিগারেশন পাথ
 import {
   User, Lock, Mail, Phone, Upload, QrCode, Activity,
   Users, FileText, Settings, Bell, Star, Play, Download,
