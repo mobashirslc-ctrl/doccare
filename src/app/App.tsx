@@ -1583,7 +1583,7 @@ function QRScanPage({ go }: { go: (v: View) => void }) {
 // ============================================================
 export default function App() {
   const [view, setView] = useState<View>("landing");
-  const [authUser, setAuthUser] = useState<{ name: string; role: Role } | null>(null); // আমি আপনার আগের কোড থেকে authUser নামটিই রাখলাম
+  const [authUser, setAuthUser] = useState<{ name: string; role: Role } | null>(null);
   const [role, setRole] = useState<Role>("patient");
   const [agentList, setAgentList] = useState<Agent[]>(INITIAL_AGENTS);
   const [docPackage, setDocPackage] = useState<PackageKey>("pro");
@@ -1592,48 +1592,50 @@ export default function App() {
 
   const go = (v: View) => setView(v);
   const setAuth = (u: { name: string; role: Role } | null) => setAuthUser(u);
+
   useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      console.log("User is logged in:", user.uid);
-      try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setAuth({ name: userData.name, role: userData.role });
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        console.log("User is logged in:", user.uid);
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setAuth({ name: userData.name, role: userData.role });
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
         }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
+      } else {
+        console.log("User is logged out");
+        setAuth(null);
+        
+        // নতুন সুরক্ষিত লজিক: 
+        // ইউজার যদি রেজিস্ট্রেশন, লগইন বা পেমেন্ট পেজে থাকে, তবে তাকে জোর করে ল্যান্ডিং পেজে পাঠাবে না।
+        const isProtectedView = ["register", "login", "doctor-payment", "doctor-pending"].includes(view);
+        
+        if (!isProtectedView) {
+          go("landing");
+        }
       }
-} else {
-      console.log("User is logged out");
-      setAuth(null);
-      
-      // নতুন সুরক্ষিত লজিক: 
-      // ইউজার যদি রেজিস্ট্রেশন, লগইন বা পেমেন্ট পেজে থাকে, তবে তাকে জোর করে ল্যান্ডিং পেজে পাঠাবে না।
-      const isProtectedView = ["register", "login", "doctor-payment", "doctor-pending"].includes(view);
-      
-      if (!isProtectedView) {
-        go("landing");
-      }
-    }
-  return () => unsubscribe();
-}, []); // dependency array খালি রাখুন
+    });
+    return () => unsubscribe();
+  }, [view]); // এখানে 'view' ডিপেন্ডেন্সি হিসেবে রাখলাম যাতে লজিকটি ভিউ পরিবর্তনের সাথে আপডেটেড থাকে
 
-// ভিউ হ্যান্ডলিং
-if (view === "landing") return <LandingPage go={go}/>;
-if (view === "login") return <LoginPage go={go} setAuth={setAuth} />;
-if (view === "register") {
-  return <RegisterPage go={go} setDocPackage={setDocPackage} setAuth={setAuth} />;
-}
-if (view === "doctor-payment") return <DoctorPaymentPage go={go} docPackage={docPackage} />;
-if (view === "doctor-pending") return <DoctorPendingPage go={go} docPackage={docPackage}/>;
-if (view === "pending") return <PendingPage go={go} role={authUser?.role || "doctor"} />;
-if (view === "doctor") return <DoctorDashboard go={go} setAuth={() => setAuth(null)} docPackage={docPackage} subscriptionDays={subscriptionDays} setSubscriptionDays={setSubscriptionDays} isDashboardBlocked={isDashboardBlocked} setIsDashboardBlocked={setIsDashboardBlocked}/>;
-if (view === "patient") return <PatientDashboard go={go} setAuth={() => setAuth(null)}/>;
-if (view === "agent") return <AgentDashboard go={go} setAuth={() => setAuth(null)}/>;
-if (view === "admin") return <AdminDashboard go={go} setAuth={() => setAuth(null)} agentList={agentList} setAgentList={setAgentList}/>;
-if (view === "qrscan") return <QRScanPage go={go}/>;
+  // ভিউ হ্যান্ডলিং
+  if (view === "landing") return <LandingPage go={go}/>;
+  if (view === "login") return <LoginPage go={go} setAuth={setAuth} />;
+  if (view === "register") {
+    return <RegisterPage go={go} setDocPackage={setDocPackage} setAuth={setAuth} />;
+  }
+  if (view === "doctor-payment") return <DoctorPaymentPage go={go} docPackage={docPackage} />;
+  if (view === "doctor-pending") return <DoctorPendingPage go={go} docPackage={docPackage}/>;
+  if (view === "pending") return <PendingPage go={go} role={authUser?.role || "doctor"} />;
+  if (view === "doctor") return <DoctorDashboard go={go} setAuth={() => setAuth(null)} docPackage={docPackage} subscriptionDays={subscriptionDays} setSubscriptionDays={setSubscriptionDays} isDashboardBlocked={isDashboardBlocked} setIsDashboardBlocked={setIsDashboardBlocked}/>;
+  if (view === "patient") return <PatientDashboard go={go} setAuth={() => setAuth(null)}/>;
+  if (view === "agent") return <AgentDashboard go={go} setAuth={() => setAuth(null)}/>;
+  if (view === "admin") return <AdminDashboard go={go} setAuth={() => setAuth(null)} agentList={agentList} setAgentList={setAgentList}/>;
+  if (view === "qrscan") return <QRScanPage go={go}/>;
 
-return <LandingPage go={go}/>;
+  return <LandingPage go={go}/>;
 }
