@@ -102,46 +102,54 @@ export function RegisterPage({ go, setAuth }: { go: (view: View) => void, setAut
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !email || !password) {
-      alert("Please fill in all fields");
-      return;
-    }
-    setLoading(true);
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      // ডাক্তার বা এজেন্ট হলে pending থাকবে, অন্যথায় approved
-      const initialStatus = (role === "patient" || role === "admin") ? "approved" : "pending";
+  e.preventDefault();
 
-      await setDoc(doc(db, "users", user.uid), {
-        name: name,
-        email: email,
-        role: role,
-        status: initialStatus,
-        createdAt: new Date().toISOString()
-      });
+  // ১. বেসিক ভ্যালিডেশন
+  if (!name || !email || !password) {
+    alert("Please fill in all fields");
+    return;
+  }
 
-      alert("Registration Successful!");
-      
-      // ইউজার স্টেট আপডেট
-      setAuth({ name: name, role: role });
-      
-      // ✅ আপডেট: ডাক্তার হলে পেমেন্ট পেজে যাবে, অন্যথায় পেন্ডিং বা লগইন পেজে
-      if (role === "doctor") {
-        go("doctor-payment"); 
-      } else if (initialStatus === "approved") {
-        go("login");
-      } else {
-        go("pending"); 
-      }
-    } catch (error: any) {
-      alert("Registration Failed: " + error.message);
-    } finally {
-      setLoading(false);
+  setLoading(true);
+
+  try {
+    // ২. ফায়ারবেস অথেন্টিকেশনে ইউজার তৈরি করা
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    const initialStatus = (role === "patient" || role === "admin") ? "approved" : "pending";
+
+    // ৩. ফায়ারস্টোর ডাটাবেসে ইউজারের তথ্য সেভ করা
+    await setDoc(doc(db, "users", user.uid), {
+      name: name,
+      email: email,
+      role: role,
+      status: initialStatus,
+      createdAt: new Date().toISOString()
+    });
+
+    alert("Registration Successful!");
+    
+    // ৪. স্টেট আপডেট এবং পেজ রিডাইরেক্ট করা
+    setAuth({ name: name, role: role });
+    
+    if (role === "doctor") {
+      go("doctor-payment");
+    } else if (initialStatus === "approved") {
+      go("login");
+    } else {
+      go("pending");
     }
-  };
+
+  } catch (error: any) {
+    // ৫. এখানে আসল এররটি ধরা পড়বে (যেটি কনসোলে দেখা যাবে)
+    console.error("Registration Error details:", error);
+    alert("Registration Failed: " + error.message);
+  } finally {
+    // ৬. লোডিং বন্ধ করা
+    setLoading(false);
+  }
+};
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 text-slate-100">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
