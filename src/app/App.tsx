@@ -1630,3 +1630,4 @@ if (view === "admin") return <AdminDashboard go={go} setAuth={() => setAuth(null
 if (view === "qrscan") return <QRScanPage go={go}/>;
 
 return <LandingPage go={go}/>;
+}
