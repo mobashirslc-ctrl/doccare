@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { PendingPage } from "./pending";
 import {
   User, Lock, Mail, Phone, Upload, QrCode, Activity,
   Users, FileText, Settings, Bell, Star, Play, Download,
@@ -1569,7 +1570,8 @@ function QRScanPage({ go }: { go: (v: View) => void }) {
 // ============================================================
 export default function App() {
   const [view, setView] = useState<View>("landing");
-  const [authUser, setAuthUser] = useState<{ name: string; role: Role } | null>(null);
+  const [authUser, setAuthUser] = useState<{ name: string; role: Role } | null>(null); // আমি আপনার আগের কোড থেকে authUser নামটিই রাখলাম
+  const [role, setRole] = useState<Role>("patient");
   const [agentList, setAgentList] = useState<Agent[]>(INITIAL_AGENTS);
   const [docPackage, setDocPackage] = useState<PackageKey>("pro");
   const [subscriptionDays, setSubscriptionDays] = useState(28);
@@ -1579,11 +1581,17 @@ export default function App() {
   const setAuth = (u: { name: string; role: Role } | null) => setAuthUser(u);
 
   if (view === "landing") return <LandingPage go={go}/>;
-  if (view === "login") return <LoginPage go={go} setAuth={setAuth}/>;
-  if (view === "register") return <RegisterPage go={go} setDocPackage={setDocPackage}/>;
+  if (view === "login") {
+  return <LoginPage go={setView} setAuth={setAuth} />;
+}
+if (view === "register") {
+  return <RegisterPage go={setView} />; // অথবা এখানেও setRole পাস করতে পারেন
+}
   if (view === "doctor-payment") return <DoctorPaymentPage go={go} docPackage={docPackage}/>;
   if (view === "doctor-pending") return <DoctorPendingPage go={go} docPackage={docPackage}/>;
-  if (view === "pending") return <PendingApprovalPage go={go}/>;
+if (view === "pending") {
+  return <PendingPage go={setView} role={auth?.role || "doctor"} />;
+}
   if (view === "doctor") return <DoctorDashboard go={go} setAuth={() => setAuth(null)} docPackage={docPackage} subscriptionDays={subscriptionDays} setSubscriptionDays={setSubscriptionDays} isDashboardBlocked={isDashboardBlocked} setIsDashboardBlocked={setIsDashboardBlocked}/>;
   if (view === "patient") return <PatientDashboard go={go} setAuth={() => setAuth(null)}/>;
   if (view === "agent") return <AgentDashboard go={go} setAuth={() => setAuth(null)}/>;
