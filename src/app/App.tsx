@@ -1605,15 +1605,18 @@ export default function App() {
       } catch (error) {
         console.error("Error fetching user data:", error);
       }
-    } else {
+} else {
       console.log("User is logged out");
       setAuth(null);
-      // শুধু তখনই ল্যান্ডিং পেজে পাঠাও যদি ইউজার রেজিস্ট্রেশন বা লগইন পেজে না থাকে
-      if (view !== "register" && view !== "login") {
+      
+      // নতুন সুরক্ষিত লজিক: 
+      // ইউজার যদি রেজিস্ট্রেশন, লগইন বা পেমেন্ট পেজে থাকে, তবে তাকে জোর করে ল্যান্ডিং পেজে পাঠাবে না।
+      const isProtectedView = ["register", "login", "doctor-payment", "doctor-pending"].includes(view);
+      
+      if (!isProtectedView) {
         go("landing");
       }
     }
-  });
   return () => unsubscribe();
 }, []); // dependency array খালি রাখুন
 
