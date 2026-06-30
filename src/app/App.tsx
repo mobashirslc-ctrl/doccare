@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { PendingPage } from "./pendingpage";
+import { PendingPage } from "../pendingpage";
 import {
   User, Lock, Mail, Phone, Upload, QrCode, Activity,
   Users, FileText, Settings, Bell, Star, Play, Download,
