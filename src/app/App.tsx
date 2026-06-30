@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { PendingPage } from "../pendingpage";
+import { PendingPage } from "../PendingPage";
 import {
   User, Lock, Mail, Phone, Upload, QrCode, Activity,
   Users, FileText, Settings, Bell, Star, Play, Download,
@@ -432,7 +432,15 @@ function RegisterPage({ go, setDocPackage }: { go: (v: View) => void; setDocPack
 
   const baseValid = form.name.length > 0 && form.email.includes("@") && form.phone.length >= 11 && form.password.length >= 6 && form.password === form.confirmPass;
   const isStepValid = () => {
-    if (role === "doctor") { if (step === 1) return baseValid && form.specialty.length > 0 && form.chamber.length > 0; return selectedPkg !== null; }
+   if (role === "doctor") {
+  if (step === 1) {
+    // ডাক্তারদের জন্য প্রথম ধাপের ভ্যালিডেশন
+    return baseValid && form.specialty.length > 0 && form.chamber.length > 0;
+  } else if (step === 2) {
+    // ডাক্তারদের জন্য দ্বিতীয় ধাপ (প্যাকেজ সিলেকশন) ভ্যালিডেশন
+    return selectedPkg !== null;
+  }
+}
     if (role === "patient") return form.name.length > 0 && form.phone.length >= 11 && form.password.length >= 6 && form.password === form.confirmPass && form.dob.length > 0;
     if (role === "admin") return baseValid && form.adminCode === "ADMIN2025";
     if (role === "agent") { if (step === 1) return baseValid; if (step === 2) return form.qualification.length > 0 && form.institution.length > 0; if (step === 3) return form.workExp.length > 0; return cvName.length > 0; }
@@ -1586,9 +1594,17 @@ export default function App() {
   return <LoginPage go={setView} setAuth={setAuth} />;
 }
 if (view === "register") {
-  return <RegisterPage go={go} setAuth={setAuth} />;
+  return (
+    <RegisterPage 
+      go={go} 
+      setDocPackage={setDocPackage} 
+      setAuth={setAuth} // এই লাইনটি যোগ করুন
+    />
+  );
 }
-  if (view === "doctor-payment") return <DoctorPaymentPage go={go} docPackage={docPackage}/>;
+  if (view === "doctor-payment") {
+  return <DoctorPaymentPage go={go} docPackage={docPackage} />;
+}
   if (view === "doctor-pending") return <DoctorPendingPage go={go} docPackage={docPackage}/>;
 if (view === "pending") {
   // এখানে authUser থেকে role পাস করছি, যাতে PendingPage বুঝতে পারে কে লগইন করেছে

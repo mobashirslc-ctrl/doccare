@@ -111,6 +111,8 @@ export function RegisterPage({ go, setAuth }: { go: (view: View) => void, setAut
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+      
+      // ডাক্তার বা এজেন্ট হলে pending থাকবে, অন্যথায় approved
       const initialStatus = (role === "patient" || role === "admin") ? "approved" : "pending";
 
       await setDoc(doc(db, "users", user.uid), {
@@ -123,13 +125,16 @@ export function RegisterPage({ go, setAuth }: { go: (view: View) => void, setAut
 
       alert("Registration Successful!");
       
-      // ✅ আপডেট: স্টেট সেট করা হলো যাতে পেজ ব্ল্যাঙ্ক না হয়
+      // ইউজার স্টেট আপডেট
       setAuth({ name: name, role: role });
       
-      if (initialStatus === "approved") {
+      // ✅ আপডেট: ডাক্তার হলে পেমেন্ট পেজে যাবে, অন্যথায় পেন্ডিং বা লগইন পেজে
+      if (role === "doctor") {
+        go("doctor-payment"); 
+      } else if (initialStatus === "approved") {
         go("login");
       } else {
-        go("pending");
+        go("pending"); 
       }
     } catch (error: any) {
       alert("Registration Failed: " + error.message);
@@ -137,7 +142,6 @@ export function RegisterPage({ go, setAuth }: { go: (view: View) => void, setAut
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 text-slate-100">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
