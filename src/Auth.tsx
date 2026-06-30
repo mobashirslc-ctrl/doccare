@@ -102,6 +102,7 @@ export function RegisterPage({ go, setAuth }: { go: (view: View) => void, setAut
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
+    console.log("Button clicked!");
   e.preventDefault();
 
   // ১. বেসিক ভ্যালিডেশন
