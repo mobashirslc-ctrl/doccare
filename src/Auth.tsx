@@ -102,10 +102,8 @@ export function RegisterPage({ go, setAuth }: { go: (view: View) => void, setAut
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
-    console.log("Button clicked!");
   e.preventDefault();
 
-  // ১. বেসিক ভ্যালিডেশন
   if (!name || !email || !password) {
     alert("Please fill in all fields");
     return;
@@ -114,14 +112,15 @@ export function RegisterPage({ go, setAuth }: { go: (view: View) => void, setAut
   setLoading(true);
 
   try {
-    // ২. ফায়ারবেস অথেন্টিকেশনে ইউজার তৈরি করা
+    // ১. ইউজার তৈরি
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
     const initialStatus = (role === "patient" || role === "admin") ? "approved" : "pending";
 
-    // ৩. ফায়ারস্টোর ডাটাবেসে ইউজারের তথ্য সেভ করা
-    await setDoc(doc(db, "users", user.uid), {
+    // ২. ডাটাবেসে তথ্য সেভ করা
+    const userDocRef = doc(db, "users", user.uid);
+    await setDoc(userDocRef, {
       name: name,
       email: email,
       role: role,
@@ -129,25 +128,28 @@ export function RegisterPage({ go, setAuth }: { go: (view: View) => void, setAut
       createdAt: new Date().toISOString()
     });
 
-    alert("Registration Successful!");
-    
-    // ৪. স্টেট আপডেট এবং পেজ রিডাইরেক্ট করা
+    console.log("User document saved successfully."); // এটি কনসোলে চেক করবেন
+
+    // ৩. স্টেট আপডেট
     setAuth({ name: name, role: role });
-    
-    if (role === "doctor") {
-      go("doctor-payment");
-    } else if (initialStatus === "approved") {
-      go("login");
-    } else {
-      go("pending");
-    }
+
+    // ৪. রিডাইরেকশন - সামান্য ডিলে যোগ করা যাতে ডাটাবেস আপডেট প্রসেস শেষ হয়
+    setTimeout(() => {
+      if (role === "doctor") {
+        go("doctor-payment");
+      } else if (initialStatus === "approved") {
+        go("login");
+      } else {
+        go("pending");
+      }
+    }, 500); 
+
+    alert("Registration Successful!");
 
   } catch (error: any) {
-    // ৫. এখানে আসল এররটি ধরা পড়বে (যেটি কনসোলে দেখা যাবে)
     console.error("Registration Error details:", error);
     alert("Registration Failed: " + error.message);
   } finally {
-    // ৬. লোডিং বন্ধ করা
     setLoading(false);
   }
 };
