@@ -142,7 +142,7 @@ export function RegisterPage({ go, setAuth }: { go: (view: View) => void, setAut
       } else {
         go("pending");
       }
-    }, 500); 
+    }, 1000); 
 
     alert("Registration Successful!");
 
