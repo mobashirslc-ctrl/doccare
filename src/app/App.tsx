@@ -1623,7 +1623,9 @@ export default function App() {
 // ভিউ হ্যান্ডলিং
 if (view === "landing") return <LandingPage go={go}/>;
 if (view === "login") return <LoginPage go={go} setAuth={setAuth} />;
-if (view === "register") return <RegisterPage go={go} setDocPackage={setDocPackage} setAuth={setAuth} />;
+if (view === "register") {
+  return <RegisterPage go={go} setDocPackage={setDocPackage} setAuth={setAuth} />;
+}
 if (view === "doctor-payment") return <DoctorPaymentPage go={go} docPackage={docPackage} />;
 if (view === "doctor-pending") return <DoctorPendingPage go={go} docPackage={docPackage}/>;
 if (view === "pending") return <PendingPage go={go} role={authUser?.role || "doctor"} />;
