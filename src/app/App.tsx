@@ -1,5 +1,8 @@
 import { useState, useRef } from "react";
 import { PendingPage } from "../PendingPage";
+import { useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../firebase"; //
 import {
   User, Lock, Mail, Phone, Upload, QrCode, Activity,
   Users, FileText, Settings, Bell, Star, Play, Download,
@@ -1588,6 +1591,20 @@ export default function App() {
 
   const go = (v: View) => setView(v);
   const setAuth = (u: { name: string; role: Role } | null) => setAuthUser(u);
+  useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // User login ache, tumi chaile ekhane db theke data niye 
+      // setAuthUser(data) korte paro
+      console.log("User is logged in:", user.uid);
+    } else {
+      // User logout hoye geche
+      console.log("User is logged out");
+      setAuth(null);
+    }
+  });
+  return () => unsubscribe();
+}, []);
 
   if (view === "landing") return <LandingPage go={go}/>;
   if (view === "login") {
